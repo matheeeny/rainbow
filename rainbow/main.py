@@ -69,8 +69,7 @@ def main():  # pragma: no cover
         logger.setLevel(logging.DEBUG)
 
     Cloudformation.default_region = args.region
-    Cloudformation.default_bucket = args.bucket
-    datasource_collection = DataSourceCollection(args.datasources)
+    datasource_collection = DataSourceCollection(args.datasources, args.bucket)
 
     # load and merge templates
     template = TemplateLoader.load_templates(args.templates)
