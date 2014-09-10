@@ -58,8 +58,9 @@ def main():  # pragma: no cover
     parser.add_argument('--block', action='store_true',
                         help='Track stack creation, if the stack creation failed, exits with a non-zero exit code')
 
-    parser.add_argument('-b', '--bucket', help='The bucket to store Cloudformation template within S3')
-    parser.add_argument('-f', '--filename', help='The filename to store the Cloudformation template as within S3')
+    parser.add_argument('-b', '--bucket', help='The bucket to store Cloudformation template within S3.')
+    parser.add_argument('-f', '--filename', help='The filename to store the Cloudformation template as within S3.')
+    parser.add_argument('-t', '--timeout', help='The timeout for s3 communication.')
 
     parser.add_argument('stack_name')
     parser.add_argument('templates', metavar='template', type=str, nargs='+')
@@ -99,9 +100,9 @@ def main():  # pragma: no cover
         stack_events_iterator = cloudformation.tail_stack_events(args.stack_name, None if args.update_stack else 0)
 
     if args.update_stack:
-        cloudformation.update_stack(args.stack_name, template, parameters)
+        cloudformation.update_stack(args.stack_name, template, parameters, args.bucket, args.filename, args.timeout)
     else:
-        cloudformation.create_stack(args.stack_name, template, parameters)
+        cloudformation.create_stack(args.stack_name, template, parameters, args.bucket, args.filename, args.timeout)
 
     if args.block:
         for event in stack_events_iterator:
