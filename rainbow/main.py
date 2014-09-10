@@ -58,6 +58,9 @@ def main():  # pragma: no cover
     parser.add_argument('--block', action='store_true',
                         help='Track stack creation, if the stack creation failed, exits with a non-zero exit code')
 
+    parser.add_argument('-b', '--bucket', help='The bucket to store Cloudformation template within S3')
+    parser.add_argument('-f', '--filename', help='The filename to store the Cloudformation template as within S3')
+
     parser.add_argument('stack_name')
     parser.add_argument('templates', metavar='template', type=str, nargs='+')
 
@@ -66,6 +69,7 @@ def main():  # pragma: no cover
         logger.setLevel(logging.DEBUG)
 
     Cloudformation.default_region = args.region
+    Cloudformation.default_bucket = args.bucket
     datasource_collection = DataSourceCollection(args.datasources)
 
     # load and merge templates

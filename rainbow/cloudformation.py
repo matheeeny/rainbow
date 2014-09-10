@@ -31,6 +31,8 @@ import json
 import itertools
 import boto.cloudformation
 import boto.exception
+import boto
+from boto.s3.key import Key
 
 
 def boto_all(func, *args, **kwargs):
@@ -66,15 +68,19 @@ class CloudformationException(Exception):
 
 class Cloudformation(object):
     default_region = 'us-east-1'
+    default_bucket = 'rainbow'
+    default_s3_timeout = 300
 
-    def __init__(self, region=None):
+    def __init__(self, region=None, bucket=None, s3_timeout=None):
         """
         :param region: AWS region
         :type region: str
         """
-
+        if bucket != None:
+            default_bucket = bucket
+        if s3_timeout != None:
+            default_s3_timeout = s3_timeout
         self.connection = boto.cloudformation.connect_to_region(region or Cloudformation.default_region)
-
         if not self.connection:
             raise CloudformationException('Invalid region %s' % (region or Cloudformation.default_region,))
 
@@ -104,7 +110,32 @@ class Cloudformation(object):
 
         return parameters
 
-    def update_stack(self, name, template, parameters):
+    def update_s3_template(self, filename, template, bucket=None, timeout=None):
+        """
+        Send a template up to s3
+
+        :param bucket: bucket name
+        :type bucket: str
+        :param filename: filename to store template as key
+        :type filename: str
+        :param template: Cloud formation template
+        :type template: str
+        """
+        if bucket == None:
+            bucket = Cloudformation.default_bucket
+        if timeout == None:
+            timeout = Cloudformation.default_s3_timeout
+        try:
+            s3conn = boto.connect_s3()
+            bucket = s3conn.get_bucket(bucket)
+            key = Key(bucket)
+            key.key = filename
+            key.set_contents_from_string(template)
+            return key.generate_url(expires_in=timeout, query_auth=False, force_http=True)
+        except boto.exception.BotoServerError, ex:
+            raise CloudformationException('error occured while updating s3 bucket / filename %s / %s : %s' % (bucket, filename, ex.message))
+
+    def update_stack(self, name, template, parameters, bucket=None, filename=None, timeout=None):
         """
         Update CFN stack
 
@@ -114,15 +145,30 @@ class Cloudformation(object):
         :type template: str
         :param parameters: dictionary containing key value pairs as CFN parameters
         :type parameters: dict
+        :param bucket: Bucket to store template in s3
+        :type bucket: str
+        :param filename: Filename to store template s in s3
+        :type filename: str
+        :param timeout: Timeout in seconds for s3 communication
+        :type timeout: int
         """
-
+        templateUrl = None
+        if filename == None:
+            filename = name
+        if bucket != None:
+            templateUrl = self.update_s3_template(filename, json.dumps(template), bucket, timeout)
         try:
-            self.connection.update_stack(name, json.dumps(template), disable_rollback=True,
-                                         parameters=parameters.items(), capabilities=['CAPABILITY_IAM'])
+            if templateUrl == None:
+                self.connection.update_stack(name, json.dumps(template), disable_rollback=True,
+                                             parameters=parameters.items(), capabilities=['CAPABILITY_IAM'])
+            else:
+                self.connection.update_stack(name, template_url=templateUrl, disable_rollback=True,
+                                             parameters=parameters.items(), capabilities=['CAPABILITY_IAM'])
+
         except boto.exception.BotoServerError, ex:
             raise CloudformationException('error occured while updating stack %s: %s' % (name, ex.message))
 
-    def create_stack(self, name, template, parameters):
+    def create_stack(self, name, template, parameters, bucket=None, filename=None, timeout=None):
         """
         Create CFN stack
 
@@ -132,10 +178,25 @@ class Cloudformation(object):
         :type template: str
         :param parameters: dictionary containing key value pairs as CFN parameters
         :type parameters: dict
+        :param bucket: Bucket to store template in s3
+        :type bucket: str
+        :param filename: Filename to store template s in s3
+        :type filename: str
+        :param timeout: Timeout in seconds for s3 communication
+        :type timeout: int
         """
 
+        templateUrl = None
+        if filename == None:
+            filename = name
+        if bucket != None:
+            templateUrl = self.update_s3_template(filename, json.dumps(template), bucket, timeout)
         try:
-            self.connection.create_stack(name, json.dumps(template), disable_rollback=True,
+            if templateUrl == None:
+                self.connection.create_stack(name, json.dumps(template), disable_rollback=True,
+                                         parameters=parameters.items(), capabilities=['CAPABILITY_IAM'])
+            else:
+                self.connection.create_stack(name, template_url=templateUrl, disable_rollback=True,
                                          parameters=parameters.items(), capabilities=['CAPABILITY_IAM'])
         except boto.exception.BotoServerError, ex:
             raise CloudformationException('error occured while creating stack %s: %s' % (name, ex.message))
