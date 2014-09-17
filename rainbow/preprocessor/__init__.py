@@ -28,6 +28,6 @@
 
 from base import Preprocessor
 import instance_chooser
+import s3_template_upload
 
 __all__ = ['Preprocessor']
-
