@@ -97,3 +97,25 @@ From a given list of possible instance types, choose the first one that exists o
 Suppose you have a CFN stack that should be using a `c3.large` instance, but in a particular region that instance family is not yet supported. In that case, you want it to fallback to `c1.medium`.  
 A code of `{'Rb::InstanceChooser': ['c3.large', 'c1.medium']}` will evaluate to `c3.large` on regions that supports it and `c1.medium` on regions that don't.
 
+Rb::S3TemplateUpload
+-------------------
+Upload a template to the provided bucket/key and return the https url.
+This is particularly useful when dealing with Cloudformation stacks as Cloudformation
+resources (nested stacks).  If the provided file is yaml, it will be converted to JSON.
+Before uploading, the provided template will be validated via the boto cloudformation API
+
+Example usage:
+```yaml
+Resources:
+  DBStack:
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      TemplateURL:
+        Rb::S3TemplateUpload:
+          - cloudformation.us-east-1.mycorp.net/substacks/db-instance.template
+          - stacks/substacks/db-instance.yaml
+      Parameters:
+        Storage: { Ref: DBSizeInGB }
+        InstanceType: { Ref: InstanceType }
+        SnapshotId: { Ref: SnapshotId }
+```
